@@ -13,7 +13,7 @@ function extractHtml(text: string): string {
 export async function buildPage(input: { slug: string; title: string; brief: string }): Promise<number> {
   const text = await generate(
     `Build the "${input.title}" page (URL path /site/${input.slug}).\n\nBrief:\n${input.brief}`,
-    { role: DESIGNER_ROLE, effort: "high", maxTokens: 32000 },
+    { role: DESIGNER_ROLE, tier: "standard", effort: "medium", maxTokens: 32000 },
   );
   return savePage({ slug: input.slug, title: input.title, html: extractHtml(text) });
 }
@@ -23,7 +23,7 @@ export async function editPage(id: number, instruction: string): Promise<void> {
   if (!page) throw new Error(`No page #${id}`);
   const text = await generate(
     `Here is the current HTML of the "${page.title}" page:\n\n<current_page>\n${page.html}\n</current_page>\n\nApply this change and return the full updated document:\n${instruction}`,
-    { role: DESIGNER_ROLE, effort: "high", maxTokens: 32000 },
+    { role: DESIGNER_ROLE, tier: "standard", effort: "medium", maxTokens: 32000 },
   );
   updatePage(id, { html: extractHtml(text) });
 }

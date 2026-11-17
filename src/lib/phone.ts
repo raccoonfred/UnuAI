@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { getSettings, saveConversation } from "./repo";
+import { getLang } from "./i18n";
 
 /**
  * Phone calls go through Twilio. Needed env vars:
@@ -16,8 +17,13 @@ export function ownerPhone(): string | undefined {
   return (getSettings().owner_phone || process.env.OWNER_PHONE || "").replace(/[^\d+]/g, "") || undefined;
 }
 
-export const PHONE_LANGUAGE = process.env.PHONE_LANGUAGE ?? "ro-RO";
-const PHONE_VOICE = process.env.PHONE_VOICE ?? "Google.ro-RO-Wavenet-A";
+/** Call language follows the app language unless PHONE_LANGUAGE is set. */
+export function phoneLanguage(): string {
+  return process.env.PHONE_LANGUAGE ?? (getLang() === "en" ? "en-US" : "ro-RO");
+}
+function phoneVoice(): string {
+  return process.env.PHONE_VOICE ?? (phoneLanguage().startsWith("ro") ? "Google.ro-RO-Wavenet-A" : "Google.en-US-Wavenet-F");
+}
 
 function xmlEscape(s: string) {
   return s.replace(/[<>&'"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;" })[c]!);
@@ -30,10 +36,10 @@ export function publicUrl(path: string) {
 /** TwiML that says something, then listens for the owner's reply. */
 export function sayAndListen(text: string, conversationId: string, hangup = false): string {
   const spoken = text.replace(/[*_#`>|]+/g, "").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").replace(/\s+/g, " ").trim();
-  const say = `<Say voice="${PHONE_VOICE}" language="${PHONE_LANGUAGE}">${xmlEscape(spoken)}</Say>`;
+  const say = `<Say voice="${phoneVoice()}" language="${phoneLanguage()}">${xmlEscape(spoken)}</Say>`;
   if (hangup) return `<?xml version="1.0" encoding="UTF-8"?><Response>${say}<Hangup/></Response>`;
   const action = xmlEscape(publicUrl(`/api/phone/voice?c=${encodeURIComponent(conversationId)}`));
-  return `<?xml version="1.0" encoding="UTF-8"?><Response><Gather input="speech" language="${PHONE_LANGUAGE}" speechTimeout="auto" action="${action}" method="POST">${say}</Gather><Redirect method="POST">${action}</Redirect></Response>`;
+  return `<?xml version="1.0" encoding="UTF-8"?><Response><Gather input="speech" language="${phoneLanguage()}" speechTimeout="auto" action="${action}" method="POST">${say}</Gather><Redirect method="POST">${action}</Redirect></Response>`;
 }
 
 /** Validates the X-Twilio-Signature header (HMAC-SHA1 of URL + sorted POST params). */

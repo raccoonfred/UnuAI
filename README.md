@@ -1,6 +1,6 @@
 # UNU AI
 
-A private AI business assistant for the UNU guitar brand. It keeps your leads, sales, products, marketing plan, website pages and brand knowledge in one place, and an assistant powered by Claude (`claude-opus-5-5`) that can read and change all of it, by text, by voice in the browser, or over the phone.
+A private AI business assistant for the UNU guitar brand. It keeps your leads, sales, products, marketing plan, website pages and brand knowledge in one place, and an assistant powered by Claude that can read and change all of it, by text, by voice in the browser, or over the phone.
 
 ## What it does
 
@@ -15,6 +15,17 @@ A private AI business assistant for the UNU guitar brand. It keeps your leads, s
 | **Website** | AI page builder (home, about, dealers, artists or anything you describe), live preview, edit by instruction, publish at `/site/<slug>`, or copy the HTML into your existing site. |
 | **Brand brain** | Brand profile and a knowledge base the assistant reads on every request. Teach it by pasting a link, adding facts, or telling it things in chat. |
 | **Phone** | With a Twilio number, the assistant can call you (briefings, reminders) and you can call it and talk through anything. |
+
+## Language
+
+The whole app runs in **Romanian or English**. Switch with the RO / EN buttons at the bottom of the menu. The AI writes in the chosen language too (unless you write to it in another language or pick one for a specific text), and phone calls follow the same setting.
+
+## Keeping API costs low
+
+- Quick jobs (product descriptions, single posts, rewrites, outreach drafts, briefings, voice replies) use **Claude Haiku 5.5**, the cheapest model.
+- The chat assistant, web research, campaign plans and website pages use **Claude Sonnet 5.5**.
+- Requests use low reasoning effort by default, cap web searches and page reads, keep only recent chat history, and cache your brand info and the conversation so repeated parts are billed at a fraction of the price.
+- Want higher quality on something? Set `UNUAI_MODEL_STANDARD=claude-opus-5-5` (or `UNUAI_MODEL_QUICK`) in `.env.local`.
 
 ## Run it on your computer
 
@@ -51,5 +62,6 @@ Webhook requests are verified with Twilio's signature.
 
 - Next.js 16 (App Router) with TypeScript and Tailwind CSS
 - SQLite through `better-sqlite3` (`src/lib/db.ts`, `src/lib/repo.ts`)
-- Claude through the official Anthropic SDK (`src/lib/ai.ts`): one agent loop for the assistant with tools over your data (`src/lib/tools.ts`), plus web search and web fetch for research. Server-side refusal fallbacks are enabled.
+- Claude through the official Anthropic SDK (`src/lib/ai.ts`), with two model tiers: one agent loop for the assistant with tools over your data (`src/lib/tools.ts`), plus web search and web fetch for research. Server-side refusal fallbacks are enabled.
+- Romanian / English UI strings in `src/lib/i18n.ts`
 - Twilio voice webhooks for phone calls (`src/lib/phone.ts`, `src/app/api/phone`)

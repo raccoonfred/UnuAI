@@ -3,19 +3,21 @@ import * as repo from "@/lib/repo";
 import { eur } from "@/lib/format";
 import ProductFields from "@/components/ProductFields";
 import { addProductAction } from "../actions";
+import { getDict } from "@/lib/i18n";
 
 export default function ProductsPage() {
   const products = repo.listProducts();
+  const t = getDict().products;
   return (
     <div className="space-y-6">
-      <h1 className="h1">Products</h1>
+      <h1 className="h1">{t.title}</h1>
       <div className="card overflow-x-auto p-0">
         <table className="table">
-          <thead><tr><th>Name</th><th>SKU</th><th>Category</th><th className="text-right">Price</th><th className="text-right">Margin</th><th className="text-right">Stock</th></tr></thead>
+          <thead><tr><th>{t.cols.name}</th><th>{t.cols.sku}</th><th>{t.cols.category}</th><th className="text-right">{t.cols.price}</th><th className="text-right">{t.cols.margin}</th><th className="text-right">{t.cols.stock}</th></tr></thead>
           <tbody>
             {products.map((p) => (
               <tr key={p.id}>
-                <td><Link href={`/products/${p.id}`} className="font-medium hover:underline">{p.name}</Link>{!p.description && <span className="ml-2 badge">no description</span>}</td>
+                <td><Link href={`/products/${p.id}`} className="font-medium hover:underline">{p.name}</Link>{!p.description && <span className="ml-2 badge">{t.noDesc}</span>}</td>
                 <td>{p.sku}</td>
                 <td>{p.category}</td>
                 <td className="text-right">{eur(p.price)}</td>
@@ -23,15 +25,15 @@ export default function ProductsPage() {
                 <td className={`text-right ${p.stock <= 1 ? "font-semibold text-red-600" : ""}`}>{p.stock}</td>
               </tr>
             ))}
-            {products.length === 0 && <tr><td colSpan={6} className="py-6 text-center text-muted">Add your guitar models so the assistant knows your catalog.</td></tr>}
+            {products.length === 0 && <tr><td colSpan={6} className="py-6 text-center text-muted">{t.empty}</td></tr>}
           </tbody>
         </table>
       </div>
       <details className="card" open={products.length === 0}>
-        <summary className="cursor-pointer font-medium">Add a product</summary>
+        <summary className="cursor-pointer font-medium">{t.add}</summary>
         <form action={addProductAction} className="mt-4 grid gap-3 sm:grid-cols-3">
-          <ProductFields />
-          <div className="sm:col-span-3"><button className="btn-primary">Add product</button></div>
+          <ProductFields t={t.fields} />
+          <div className="sm:col-span-3"><button className="btn-primary">{t.addBtn}</button></div>
         </form>
       </details>
     </div>

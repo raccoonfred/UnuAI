@@ -9,8 +9,19 @@ import type {
 } from "@anthropic-ai/sdk/resources/beta/messages/messages";
 import { z } from "zod";
 import { getSettings, listKnowledge, listProducts, BRAND_FIELDS } from "./repo";
+import { getLang, languageName } from "./i18n";
 
-export const MODEL = process.env.UNUAI_MODEL ?? "claude-opus-5-5";
+/**
+ * Model tiers, chosen to keep API costs low:
+ * - quick: short writing jobs and voice replies (Claude Haiku 5.5, the cheapest model)
+ * - standard: the chat assistant, web research, plans and web pages (Claude Sonnet 5.5)
+ * Override with UNUAI_MODEL_QUICK / UNUAI_MODEL_STANDARD, e.g. claude-opus-5-5 for top quality.
+ */
+export type Tier = "quick" | "standard";
+export const MODELS: Record<Tier, string> = {
+  quick: process.env.UNUAI_MODEL_QUICK ?? "claude-haiku-5-5",
+  standard: process.env.UNUAI_MODEL_STANDARD ?? "claude-sonnet-5-5",
+};
 const FALLBACK_BETA = "server-side-fallback-2026-07-01";
 
 let _client: Anthropic | undefined;
@@ -23,8 +34,9 @@ export function aiConfigured() {
   return Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
 }
 
-export const WEB_SEARCH: BetaToolUnion = { type: "web_search_20260209", name: "web_search", max_uses: 8 };
-export const WEB_FETCH: BetaToolUnion = { type: "web_fetch_20260209", name: "web_fetch", max_uses: 6 };
+// Web results are the biggest input cost, so searches and page reads are capped per request.
+export const WEB_SEARCH: BetaToolUnion = { type: "web_search_20260209", name: "web_search", max_uses: 4 };
+export const WEB_FETCH: BetaToolUnion = { type: "web_fetch_20260209", name: "web_fetch", max_uses: 3, max_content_tokens: 8000 };
 
 /** Everything the assistant knows about UNU: brand profile, knowledge base and product line. */
 export function brandContext(): string {
@@ -62,7 +74,10 @@ function systemBlocks(role: string): BetaTextBlockParam[] {
   return [
     { type: "text", text: role },
     { type: "text", text: brandContext(), cache_control: { type: "ephemeral" } },
-    { type: "text", text: `Current date and time for the owner: ${now}.` },
+    {
+      type: "text",
+      text: `Current date and time for the owner: ${now}. Write in ${languageName(getLang())} unless the owner writes to you in another language or the request names a language.`,
+    },
   ];
 }
 
@@ -76,19 +91,25 @@ export function textOf(content: BetaContentBlock[]): string {
 
 type GenerateOptions = {
   role?: string;
+  tier?: Tier;
   webSearch?: boolean;
   webFetch?: boolean;
   effort?: "low" | "medium" | "high" | "xhigh" | "max";
   maxTokens?: number;
 };
 
-const WRITER_ROLE = `You are the in-house AI business partner for a guitar brand. You write marketing copy, sales material and plans that sound like the brand, are specific to its products and customers, and are ready to use without editing. Never invent facts about the brand, prices, specs or customers: use what is in the context below, and mark anything you had to assume with [check]. Answer in the language the request is written in unless told otherwise. Use Markdown.`;
+const WRITER_ROLE = `You are the in-house AI business partner for a guitar brand. You write marketing copy, sales material and plans that sound like the brand, are specific to its products and customers, and are ready to use without editing. Never invent facts about the brand, prices, specs or customers: use what is in the context below, and mark anything you had to assume with [check]. Be concise: no preamble, no closing remarks. Use Markdown.`;
 
 /** Zod schema -> tool input_schema (without the $schema marker). */
 function toInputSchema(schema: z.ZodType): Anthropic.Beta.Messages.BetaTool.InputSchema {
   const { $schema: _ignored, ...rest } = z.toJSONSchema(schema) as Record<string, unknown>;
   void _ignored;
   return rest as Anthropic.Beta.Messages.BetaTool.InputSchema;
+}
+
+/** Web research needs the standard model; everything else defaults to the cheap quick model. */
+function modelFor(opts: GenerateOptions) {
+  return MODELS[opts.webSearch || opts.webFetch ? "standard" : (opts.tier ?? "quick")];
 }
 
 function webTools(opts: GenerateOptions): BetaToolUnion[] | undefined {
@@ -103,12 +124,12 @@ export async function generate(prompt: string, opts: GenerateOptions = {}): Prom
   // Loop only to resume server-tool turns that pause (long web searches).
   for (let i = 0; i < 4; i++) {
     response = await client().beta.messages.stream({
-      model: MODEL,
+      model: modelFor(opts),
       max_tokens: opts.maxTokens ?? 16000,
       betas: [FALLBACK_BETA],
       fallbacks: "default",
       system: systemBlocks(opts.role ?? WRITER_ROLE),
-      output_config: { effort: opts.effort ?? "medium" },
+      output_config: { effort: opts.effort ?? "low" },
       tools: webTools(opts),
       messages,
     }).finalMessage();
@@ -142,12 +163,12 @@ export async function generateJson<T extends z.ZodType>(
   ];
   for (let i = 0; i < 6; i++) {
     const response = await client().beta.messages.stream({
-      model: MODEL,
+      model: modelFor(opts),
       max_tokens: opts.maxTokens ?? 16000,
       betas: [FALLBACK_BETA],
       fallbacks: "default",
       system: systemBlocks(opts.role ?? WRITER_ROLE),
-      output_config: { effort: opts.effort ?? "medium" },
+      output_config: { effort: opts.effort ?? "low" },
       tools,
       messages,
     }).finalMessage();
@@ -200,6 +221,7 @@ export async function runAgent(params: {
   history: BetaMessageParam[];
   tools: AgentTool[];
   webSearch?: boolean;
+  tier?: Tier;
   effort?: GenerateOptions["effort"];
   maxTurns?: number;
 }): Promise<AgentResult> {
@@ -216,12 +238,14 @@ export async function runAgent(params: {
 
   for (let turn = 0; turn < (params.maxTurns ?? 12); turn++) {
     const response = await client().beta.messages.stream({
-      model: MODEL,
+      model: MODELS[params.tier ?? "standard"],
       max_tokens: 16000,
       betas: [FALLBACK_BETA],
       fallbacks: "default",
       system: systemBlocks(params.role),
-      output_config: { effort: params.effort ?? "medium" },
+      output_config: { effort: params.effort ?? "low" },
+      // Caches the conversation so far, so each tool-loop turn only pays full price for new tokens.
+      cache_control: { type: "ephemeral" },
       tools: toolDefs,
       messages,
     }).finalMessage();

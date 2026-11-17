@@ -7,6 +7,7 @@ import { generate, generateJson } from "@/lib/ai";
 import * as repo from "@/lib/repo";
 import { buildPage, editPage } from "@/lib/website";
 import { placeCall } from "@/lib/phone";
+import { languageName, type Lang } from "@/lib/i18n";
 
 const str = (fd: FormData, k: string) => {
   const v = fd.get(k);
@@ -25,6 +26,13 @@ const id = (fd: FormData) => {
   if (!v) throw new Error("Missing id");
   return v;
 };
+
+// ---------------- Language ----------------
+
+export async function setLanguage(lang: Lang) {
+  repo.setSettings({ ui_language: lang === "en" ? "en" : "ro" });
+  revalidatePath("/", "layout");
+}
 
 // ---------------- Brand ----------------
 
@@ -159,7 +167,7 @@ export async function generateSalesBrief(fd: FormData) {
   const goal = str(fd, "goal") ?? "move this lead to the next stage";
   const content = await generate(
     `Prepare me for my next conversation with this lead. Goal: ${goal}.\n\n${text}\n\nResearch them on the web first (their shop/site/socials, what brands they carry or play, recent news). Then write a sales prep brief with:\n1. Who they are (with sources)\n2. Why UNU fits them, matched to specific UNU products\n3. My goal for the conversation and the ideal outcome\n4. Opening line and 5 smart questions\n5. Likely objections with short answers\n6. Offer and pricing angle (dealer terms if they are a shop/distributor)\n7. Next step to propose`,
-    { webSearch: true, effort: "high" },
+    { webSearch: true, effort: "medium" },
   );
   repo.addDocument({ kind: "sales_brief", title: `Sales brief: ${lead.name}`, content, lead_id: leadId });
   revalidatePath(`/leads/${leadId}`);
@@ -173,7 +181,7 @@ export async function generateOutreach(fd: FormData) {
   const language = str(fd, "language") ?? "the language that fits this lead";
   const content = await generate(
     `Write a ${channel} message to this lead. Goal: ${goal}. Language: ${language}.\n\n${text}\n\nKeep it short, personal and specific to them, in the UNU brand voice. ${channel === "email" ? "Give a subject line and the body." : ""} Then give one follow-up message to send if they don't reply in 4 days.`,
-    { effort: "medium" },
+    { effort: "low" },
   );
   repo.addDocument({ kind: "outreach", title: `${channel[0].toUpperCase() + channel.slice(1)} to ${lead.name}`, content, lead_id: leadId });
   revalidatePath(`/leads/${leadId}`);
@@ -263,7 +271,7 @@ export async function salesInsights() {
   const recent = repo.listSales().slice(0, 50);
   const content = await generate(
     `Here is my sales data.\n\nSummary: ${JSON.stringify(summary)}\n\nRecent sales: ${JSON.stringify(recent)}\n\nGive me a short, honest read: what's working, what's slipping, and 3 concrete actions for the next 2 weeks. If there is too little data, say so and tell me what to track.`,
-    { effort: "medium" },
+    { effort: "low" },
   );
   repo.addDocument({ kind: "sales_insight", title: `Sales read ${new Date().toISOString().slice(0, 10)}`, content });
   revalidatePath("/sales");
@@ -307,10 +315,10 @@ export async function describeProduct(fd: FormData) {
   const p = repo.getProduct(pid);
   if (!p) return;
   const style = str(fd, "style") ?? "website product page";
-  const language = str(fd, "language") ?? "English";
+  const language = str(fd, "language") ?? languageName();
   const description = await generate(
     `Write the ${style} description for this guitar, in ${language}.\n\nProduct: ${JSON.stringify(p)}\n\nMake it vivid and specific (tone, feel, build, who it's for), honest to the specs, in the UNU voice. Include a one-line hook, the description, and a short bullet list of key specs. Output only the description, ready to paste.`,
-    { effort: "medium" },
+    { effort: "low" },
   );
   repo.updateProduct(pid, { description });
   revalidatePath(`/products/${pid}`);
@@ -364,7 +372,7 @@ export async function planMarketing(fd: FormData) {
   const plan = await generateJson(
     `Build a ${weeks}-week marketing plan for UNU starting this week. Goal: ${goal}. Channels: ${channels}. About ${perWeek} posts per week.\n\nGive: a short strategy summary; concrete tasks with due dates (shoots, outreach to artists and shops, ads, website updates...); and the content calendar with every post fully written in the brand voice (hooks, captions, hashtags, video ideas with shot lists for reels/TikToks). Tie posts to real products from the catalog where possible. Use the language from the brand profile.`,
     PlanSchema,
-    { effort: "high", maxTokens: 32000 },
+    { tier: "standard", effort: "medium", maxTokens: 32000 },
   );
   for (const t of plan.tasks) repo.addTask(t);
   for (const c of plan.content) repo.addContent({ ...c, status: "draft" });
@@ -379,7 +387,7 @@ export async function generatePost(fd: FormData) {
   const product = pid ? repo.getProduct(pid) : undefined;
   const body = await generate(
     `Write a ${channel} post about: ${topic}.${product ? `\nProduct: ${JSON.stringify(product)}` : ""}\n\nGive the hook, the full caption/copy, hashtags if relevant, and for video channels a shot list. Then 2 alternative hooks. Output only the post content.`,
-    { effort: "medium" },
+    { effort: "low" },
   );
   const newId = repo.addContent({ channel, title: topic.slice(0, 80), body, status: "draft", product_id: pid ?? null, scheduled_for: str(fd, "scheduled_for") });
   redirect(`/marketing/${newId}`);
@@ -468,7 +476,7 @@ function overviewText() {
 export async function dailyBriefing() {
   const content = await generate(
     `Write my daily briefing for UNU from this data: ${overviewText()}\n\nFormat: one-line headline, then "Today" (the 3-5 most important things to do, most important first, with who/what exactly), "Numbers" (2-3 lines), and "Ideas" (1-2 quick wins). Be brief.`,
-    { effort: "medium" },
+    { effort: "low" },
   );
   repo.addDocument({ kind: "report", title: `Briefing ${new Date().toISOString().slice(0, 10)}`, content });
   revalidatePath("/");

@@ -1,16 +1,16 @@
 import crypto from "node:crypto";
 import { chat } from "@/lib/chat";
 import { getSettings, saveConversation } from "@/lib/repo";
-import { ownerPhone, publicUrl, sayAndListen, validTwilioSignature, PHONE_LANGUAGE } from "@/lib/phone";
+import { ownerPhone, publicUrl, sayAndListen, validTwilioSignature, phoneLanguage } from "@/lib/phone";
 
 export const maxDuration = 60;
 
 const twiml = (xml: string) => new Response(xml, { headers: { "Content-Type": "text/xml" } });
-const ro = PHONE_LANGUAGE.startsWith("ro");
 const BYE = /\b(bye|goodbye|that'?s all|pa|la revedere|gata|mulțumesc,? atât|multumesc,? atat)\b/i;
 
 /** Twilio voice webhook: inbound calls from the owner and every turn of a call. */
 export async function POST(req: Request) {
+  const ro = phoneLanguage().startsWith("ro");
   const url = new URL(req.url);
   const form = await req.formData();
   const params = Object.fromEntries([...form.entries()].map(([k, v]) => [k, String(v)]));

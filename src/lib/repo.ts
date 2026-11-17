@@ -129,7 +129,6 @@ export const BRAND_FIELDS = [
   { key: "goals", label: "Current goals", placeholder: "e.g. 10 dealers in EU by summer, launch new model in March" },
   { key: "owner_name", label: "Your name", placeholder: "How the assistant should address you" },
   { key: "owner_phone", label: "Your phone (for calls)", placeholder: "+40..." },
-  { key: "language", label: "Preferred language", placeholder: "Romanian, English, or both" },
 ] as const;
 
 export function getSettings(): Record<string, string> {

@@ -3,6 +3,7 @@ import * as repo from "@/lib/repo";
 import { eur, Badge } from "@/lib/format";
 import { phoneConfigured } from "@/lib/phone";
 import Markdown from "@/components/Markdown";
+import { getDict } from "@/lib/i18n";
 import SubmitButton from "@/components/SubmitButton";
 import { dailyBriefing, callMeWithBriefing, setTaskStatus } from "./actions";
 
@@ -17,25 +18,27 @@ export default function Dashboard() {
   const briefing = repo.listDocuments({ kind: "report" })[0];
   const max = Math.max(1, ...s.monthly.map((m) => m.revenue));
   const brand = repo.getSettings().brand_name || "UNU";
+  const T = getDict();
+  const t = T.dashboard;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="h1">{brand} dashboard</h1>
+        <h1 className="h1">{t.title(brand)}</h1>
         <div className="flex flex-wrap gap-2">
-          <form action={dailyBriefing}><SubmitButton pendingText="Writing briefing...">Daily briefing</SubmitButton></form>
+          <form action={dailyBriefing}><SubmitButton pendingText={t.briefingPending}>{t.briefing}</SubmitButton></form>
           {phoneConfigured() && (
-            <form action={callMeWithBriefing}><SubmitButton className="btn" pendingText="Calling...">Call me with it</SubmitButton></form>
+            <form action={callMeWithBriefing}><SubmitButton className="btn" pendingText={t.calling}>{t.callMe}</SubmitButton></form>
           )}
-          <Link href="/assistant" className="btn">Ask the assistant</Link>
+          <Link href="/assistant" className="btn">{t.ask}</Link>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Revenue this month" value={eur(s.revenueThisMonth)} sub={`Last month ${eur(s.revenueLastMonth)}`} />
-        <Stat label="Revenue this year" value={eur(s.revenueYear)} sub={`${s.unitsThisMonth} units this month`} />
-        <Stat label="Open pipeline" value={eur(openValue)} sub={`${openLeads} open leads`} />
-        <Stat label="Open quotes" value={eur(s.openQuotes)} sub={`${followUps.length} follow-ups due`} />
+        <Stat label={t.revenueMonth} value={eur(s.revenueThisMonth)} sub={t.lastMonth(eur(s.revenueLastMonth))} />
+        <Stat label={t.revenueYear} value={eur(s.revenueYear)} sub={t.unitsMonth(s.unitsThisMonth)} />
+        <Stat label={t.openPipeline} value={eur(openValue)} sub={t.openLeads(openLeads)} />
+        <Stat label={t.openQuotes} value={eur(s.openQuotes)} sub={t.followUpsCount(followUps.length)} />
       </div>
 
       {briefing && (
@@ -50,13 +53,13 @@ export default function Dashboard() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="card">
-          <h2 className="h2 mb-3">Follow-ups due</h2>
-          {followUps.length === 0 ? <p className="text-sm text-muted">Nothing due. Nice.</p> : (
+          <h2 className="h2 mb-3">{t.followUps}</h2>
+          {followUps.length === 0 ? <p className="text-sm text-muted">{t.nothingDue}</p> : (
             <ul className="divide-y divide-border">
               {followUps.map((l) => (
                 <li key={l.id} className="flex items-center justify-between py-2 text-sm">
                   <Link href={`/leads/${l.id}`} className="font-medium hover:underline">{l.name}{l.company ? ` · ${l.company}` : ""}</Link>
-                  <span className="flex items-center gap-2"><Badge value={l.status} /><span className="text-muted">{l.next_follow_up}</span></span>
+                  <span className="flex items-center gap-2"><Badge value={l.status} label={T.status[l.status]} /><span className="text-muted">{l.next_follow_up}</span></span>
                 </li>
               ))}
             </ul>
@@ -64,16 +67,16 @@ export default function Dashboard() {
         </div>
 
         <div className="card">
-          <h2 className="h2 mb-3">Open tasks</h2>
-          {tasks.length === 0 ? <p className="text-sm text-muted">No open tasks. Plan some in <Link className="text-accent underline" href="/marketing">Marketing</Link>.</p> : (
+          <h2 className="h2 mb-3">{t.openTasks}</h2>
+          {tasks.length === 0 ? <p className="text-sm text-muted">{t.noTasks} <Link className="text-accent underline" href="/marketing">{T.nav.marketing}</Link>.</p> : (
             <ul className="divide-y divide-border">
-              {tasks.map((t) => (
-                <li key={t.id} className="flex items-center justify-between gap-2 py-2 text-sm">
-                  <span>{t.title} <span className="text-xs text-muted">· {t.area}{t.due_date ? ` · ${t.due_date}` : ""}</span></span>
+              {tasks.map((task) => (
+                <li key={task.id} className="flex items-center justify-between gap-2 py-2 text-sm">
+                  <span>{task.title} <span className="text-xs text-muted">· {T.area[task.area]}{task.due_date ? ` · ${task.due_date}` : ""}</span></span>
                   <form action={setTaskStatus}>
-                    <input type="hidden" name="id" value={t.id} />
+                    <input type="hidden" name="id" value={task.id} />
                     <input type="hidden" name="status" value="done" />
-                    <button className="btn px-2 py-1 text-xs">Done</button>
+                    <button className="btn px-2 py-1 text-xs">{t.done}</button>
                   </form>
                 </li>
               ))}
@@ -82,8 +85,8 @@ export default function Dashboard() {
         </div>
 
         <div className="card">
-          <h2 className="h2 mb-3">Revenue, last 12 months</h2>
-          {s.monthly.length === 0 ? <p className="text-sm text-muted">No sales recorded yet.</p> : (
+          <h2 className="h2 mb-3">{t.revenue12}</h2>
+          {s.monthly.length === 0 ? <p className="text-sm text-muted">{t.noSales}</p> : (
             <div className="flex h-40 items-end gap-2">
               {s.monthly.map((m) => (
                 <div key={m.month} className="flex h-full flex-1 flex-col items-center gap-1" title={`${m.month}: ${eur(m.revenue)}`}>
@@ -98,13 +101,13 @@ export default function Dashboard() {
         </div>
 
         <div className="card">
-          <h2 className="h2 mb-3">Coming up in content</h2>
-          {content.length === 0 ? <p className="text-sm text-muted">The content plan is empty.</p> : (
+          <h2 className="h2 mb-3">{t.upcoming}</h2>
+          {content.length === 0 ? <p className="text-sm text-muted">{t.emptyPlan}</p> : (
             <ul className="divide-y divide-border">
               {content.map((c) => (
                 <li key={c.id} className="flex items-center justify-between py-2 text-sm">
                   <Link href={`/marketing/${c.id}`} className="hover:underline">{c.title}</Link>
-                  <span className="flex items-center gap-2 text-xs text-muted">{c.channel} {c.scheduled_for} <Badge value={c.status} /></span>
+                  <span className="flex items-center gap-2 text-xs text-muted">{c.channel} {c.scheduled_for} <Badge value={c.status} label={T.status[c.status]} /></span>
                 </li>
               ))}
             </ul>

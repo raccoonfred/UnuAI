@@ -22,6 +22,6 @@ export const STATUS_COLORS: Record<string, string> = {
   published: "bg-emerald-100 text-emerald-800",
 };
 
-export function Badge({ value }: { value: string }) {
-  return <span className={`badge ${STATUS_COLORS[value] ?? ""}`}>{value}</span>;
+export function Badge({ value, label }: { value: string; label?: string }) {
+  return <span className={`badge ${STATUS_COLORS[value] ?? ""}`}>{label ?? value}</span>;
 }

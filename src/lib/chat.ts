@@ -3,7 +3,8 @@ import { runAgent, type ToolEvent } from "./ai";
 import { getConversation, saveConversation } from "./repo";
 import { ASSISTANT_ROLE, VOICE_ADDENDUM, assistantTools } from "./tools";
 
-const MAX_HISTORY = 60;
+// Older turns are dropped to keep each request small (and cheap).
+const MAX_HISTORY = 30;
 
 /** Keeps the most recent messages, starting at a plain user message so tool calls stay paired. */
 function trimHistory(messages: BetaMessageParam[]): BetaMessageParam[] {
@@ -27,7 +28,9 @@ export async function chat(
     history,
     tools: assistantTools(),
     webSearch: mode === "text",
-    effort: mode === "voice" ? "low" : "medium",
+    // Voice replies need to be fast and short, so they use the quick model.
+    tier: mode === "voice" ? "quick" : "standard",
+    effort: "low",
     maxTurns: mode === "voice" ? 6 : 12,
   });
   saveConversation(conversationId, result.messages, conversationId.startsWith("call-") ? "phone" : "web");

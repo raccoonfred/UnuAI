@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SESSION_COOKIE, sessionToken } from "@/lib/auth";
+import { getDict } from "@/lib/i18n";
 
 async function login(formData: FormData) {
   "use server";
@@ -21,14 +22,15 @@ async function login(formData: FormData) {
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string; next?: string }> }) {
   const { error, next } = await searchParams;
+  const t = getDict().login;
   return (
     <div className="min-h-[70vh] grid place-items-center">
       <form action={login} className="card w-full max-w-sm space-y-4">
-        <h1 className="text-xl font-semibold">Sign in to UNU AI</h1>
+        <h1 className="text-xl font-semibold">{t.title}</h1>
         <input type="hidden" name="next" value={next ?? "/"} />
-        <input name="password" type="password" placeholder="Password" className="input" autoFocus required />
-        {error && <p className="text-sm text-red-600">Wrong password.</p>}
-        <button className="btn-primary w-full">Sign in</button>
+        <input name="password" type="password" placeholder={t.password} className="input" autoFocus required />
+        {error && <p className="text-sm text-red-600">{t.wrong}</p>}
+        <button className="btn-primary w-full">{t.signIn}</button>
       </form>
     </div>
   );

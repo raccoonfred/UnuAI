@@ -2,8 +2,9 @@
 import { useActionState, useState } from "react";
 import { findLeads, importCandidate, type Candidate } from "../../actions";
 import SubmitButton from "@/components/SubmitButton";
+import type { Dict } from "@/lib/i18n";
 
-export default function LeadFinder() {
+export default function LeadFinder({ t, kinds }: { t: Dict["leads"]; kinds: Record<string, string> }) {
   const [state, action] = useActionState(findLeads, { candidates: [] as Candidate[] });
   const [added, setAdded] = useState<Record<string, number>>({});
 
@@ -11,18 +12,18 @@ export default function LeadFinder() {
     <div className="space-y-4">
       <form action={action} className="card grid gap-3 sm:grid-cols-4">
         <div className="sm:col-span-2">
-          <label className="label">Who</label>
-          <input name="what" className="input" defaultValue="independent guitar shops" placeholder="guitar shops, luthier-friendly stores, session guitarists, music schools..." />
+          <label className="label">{t.who}</label>
+          <input name="what" className="input" defaultValue={t.whoDefault} placeholder={t.whoPh} />
         </div>
         <div>
-          <label className="label">Where</label>
-          <input name="where" className="input" defaultValue="Romania" />
+          <label className="label">{t.where}</label>
+          <input name="where" className="input" defaultValue={t.whereDefault} />
         </div>
         <div>
-          <label className="label">How many</label>
+          <label className="label">{t.howMany}</label>
           <input name="count" type="number" min={1} max={25} defaultValue={10} className="input" />
         </div>
-        <div className="sm:col-span-4"><SubmitButton pendingText="Searching the web (about a minute)...">Find leads</SubmitButton></div>
+        <div className="sm:col-span-4"><SubmitButton pendingText={t.findPending}>{t.findBtn}</SubmitButton></div>
       </form>
 
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}
@@ -35,15 +36,15 @@ export default function LeadFinder() {
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <div className="font-semibold">{c.company || c.name}</div>
-                  <div className="text-xs text-muted">{[c.kind, c.city, c.country].filter(Boolean).join(" · ")}</div>
+                  <div className="text-xs text-muted">{[kinds[c.kind] ?? c.kind, c.city, c.country].filter(Boolean).join(" · ")}</div>
                 </div>
                 {added[key] ? (
-                  <a href={`/leads/${added[key]}`} className="btn px-2 py-1 text-xs">Added ✓</a>
+                  <a href={`/leads/${added[key]}`} className="btn px-2 py-1 text-xs">{t.added}</a>
                 ) : (
                   <button className="btn-primary px-2 py-1 text-xs" onClick={async () => {
                     const id = await importCandidate(c);
                     setAdded((a) => ({ ...a, [key]: id }));
-                  }}>Add</button>
+                  }}>{t.addBtn}</button>
                 )}
               </div>
               <p className="text-sm">{c.why}</p>
