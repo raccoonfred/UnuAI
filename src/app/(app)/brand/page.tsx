@@ -14,7 +14,7 @@ export default async function BrandPage() {
   const knowledge = repo.listKnowledge();
   const t = getDict().brand;
   const CATEGORIES = Object.keys(t.categories);
-  const voices = await listVoices();
+  const voices = { ro: await listVoices("ro"), en: await listVoices("en") };
   return (
     <div className="space-y-6">
       <div>
@@ -61,8 +61,8 @@ export default async function BrandPage() {
                   <label className="label">{l === "ro" ? t.voices.ro : t.voices.en}</label>
                   <div className="flex flex-wrap gap-2">
                     <select name={`voice_${l}`} defaultValue={voiceFor(l)} className="input flex-1">
-                      {voices.length === 0 && <option value={voiceFor(l)}>{voiceFor(l)}</option>}
-                      {voices.map((v) => (
+                      {voices[l].length === 0 && <option value={voiceFor(l)}>{voiceFor(l)}</option>}
+                      {voices[l].map((v) => (
                         <option key={v.voice_id} value={v.voice_id}>
                           {v.name}{v.labels ? ` (${Object.values(v.labels).filter(Boolean).slice(0, 3).join(", ")})` : ""}
                         </option>

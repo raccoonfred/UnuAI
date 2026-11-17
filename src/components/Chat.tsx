@@ -43,6 +43,8 @@ export default function Chat({ canCall, ttsEnabled, t, defaultSpeech }: { canCal
   const [notice, setNotice] = useState<string | null>(null);
   const recRef = useRef<Recognition | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [browserVoices, setBrowserVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [voiceName, setVoiceName] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -66,6 +68,19 @@ export default function Chat({ canCall, ttsEnabled, t, defaultSpeech }: { canCal
     try { localStorage.setItem("unuai-voice", JSON.stringify({ speak })); } catch {}
   }, [speak]);
 
+  // Browser voices for the free option; they load asynchronously in some browsers.
+  useEffect(() => {
+    if (ttsEnabled || !("speechSynthesis" in window)) return;
+    const load = () => {
+      const prefix = lang.slice(0, 2);
+      setBrowserVoices(window.speechSynthesis.getVoices().filter((v) => v.lang.replace("_", "-").toLowerCase().startsWith(prefix)));
+      try { setVoiceName(localStorage.getItem(`unuai-voice-${lang}`) ?? ""); } catch {}
+    };
+    load();
+    window.speechSynthesis.addEventListener("voiceschanged", load);
+    return () => window.speechSynthesis.removeEventListener("voiceschanged", load);
+  }, [lang, ttsEnabled]);
+
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, busy]);
@@ -84,10 +99,8 @@ export default function Chat({ canCall, ttsEnabled, t, defaultSpeech }: { canCal
     const prefix = lang.slice(0, 2);
     const score = (v: SpeechSynthesisVoice) =>
       (/natural|neural|online|premium|enhanced/i.test(v.name) ? 4 : 0) + (/google|microsoft/i.test(v.name) ? 2 : 0) + (v.lang.replace("_", "-") === lang ? 1 : 0);
-    const voice = window.speechSynthesis
-      .getVoices()
-      .filter((v) => v.lang.replace("_", "-").toLowerCase().startsWith(prefix))
-      .sort((a, b) => score(b) - score(a))[0];
+    const candidates = window.speechSynthesis.getVoices().filter((v) => v.lang.replace("_", "-").toLowerCase().startsWith(prefix));
+    const voice = candidates.find((v) => v.name === voiceName) ?? candidates.sort((a, b) => score(b) - score(a))[0];
     if (voice) u.voice = voice;
     window.speechSynthesis.speak(u);
   }
@@ -186,6 +199,20 @@ export default function Chat({ canCall, ttsEnabled, t, defaultSpeech }: { canCal
             <option value="ro-RO">Română</option>
             <option value="en-US">English</option>
           </select>
+          {!ttsEnabled && browserVoices.length > 0 && (
+            <select
+              className="input w-auto max-w-48 py-1"
+              value={voiceName}
+              aria-label={t.voice}
+              onChange={(e) => {
+                setVoiceName(e.target.value);
+                try { localStorage.setItem(`unuai-voice-${lang}`, e.target.value); } catch {}
+              }}
+            >
+              <option value="">{t.voice}: {t.autoVoice}</option>
+              {browserVoices.map((v) => <option key={v.name} value={v.name}>{v.name}</option>)}
+            </select>
+          )}
           <label className="flex items-center gap-1">
             <input type="checkbox" checked={speak} onChange={(e) => setSpeak(e.target.checked)} /> {t.speak}
           </label>

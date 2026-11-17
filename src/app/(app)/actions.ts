@@ -8,6 +8,7 @@ import * as repo from "@/lib/repo";
 import { buildPage, editPage } from "@/lib/website";
 import { placeCall } from "@/lib/phone";
 import { languageName, type Lang } from "@/lib/i18n";
+import { ttsProvider, voiceSettingKey } from "@/lib/tts";
 
 const str = (fd: FormData, k: string) => {
   const v = fd.get(k);
@@ -37,7 +38,12 @@ export async function setLanguage(lang: Lang) {
 // ---------------- Brand ----------------
 
 export async function saveVoices(fd: FormData) {
-  repo.setSettings({ voice_ro: String(fd.get("voice_ro") ?? ""), voice_en: String(fd.get("voice_en") ?? "") });
+  const provider = ttsProvider();
+  if (!provider) return;
+  repo.setSettings({
+    [voiceSettingKey(provider, "ro")]: String(fd.get("voice_ro") ?? ""),
+    [voiceSettingKey(provider, "en")]: String(fd.get("voice_en") ?? ""),
+  });
   revalidatePath("/brand");
 }
 
