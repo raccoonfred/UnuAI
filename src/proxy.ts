@@ -15,5 +15,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!login|site/|api/phone/voice|_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!login|site/|api/phone/voice|api/tts/audio/|_next/static|_next/image|favicon.ico).*)"],
 };

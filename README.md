@@ -20,6 +20,12 @@ A private AI business assistant for the UNU guitar brand. It keeps your leads, s
 
 The whole app runs in **Romanian or English**. Switch with the RO / EN buttons at the bottom of the menu. The AI writes in the chosen language too (unless you write to it in another language or pick one for a specific text), and phone calls follow the same setting.
 
+## Natural voices
+
+For a natural Romanian and English voice when replies are read aloud and on phone calls, add an [ElevenLabs](https://elevenlabs.io) API key as `ELEVENLABS_API_KEY`. Then pick one voice per language in **Brand brain > Voices** and press ▶ to hear it. For the most natural Romanian, add a native Romanian voice from the ElevenLabs Voice Library to your account first; it then shows up in the list.
+
+It uses the cheapest ElevenLabs model (Flash v2.5), and every sentence is cached, so repeating it costs nothing. Without a key, the chat uses the most natural voice your browser offers. Microsoft Edge has good free Romanian voices (Alina, Emil).
+
 ## Keeping API costs low
 
 - Quick jobs (product descriptions, single posts, rewrites, outreach drafts, briefings, voice replies) use **Claude Haiku 5.5**, the cheapest model.
@@ -64,4 +70,5 @@ Webhook requests are verified with Twilio's signature.
 - SQLite through `better-sqlite3` (`src/lib/db.ts`, `src/lib/repo.ts`)
 - Claude through the official Anthropic SDK (`src/lib/ai.ts`), with two model tiers: one agent loop for the assistant with tools over your data (`src/lib/tools.ts`), plus web search and web fetch for research. Server-side refusal fallbacks are enabled.
 - Romanian / English UI strings in `src/lib/i18n.ts`
+- ElevenLabs text-to-speech with an audio cache (`src/lib/tts.ts`)
 - Twilio voice webhooks for phone calls (`src/lib/phone.ts`, `src/app/api/phone`)

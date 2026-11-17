@@ -32,7 +32,7 @@ function speakable(md: string) {
     .trim();
 }
 
-export default function Chat({ canCall, t, defaultSpeech }: { canCall: boolean; t: Dict["assistant"]; defaultSpeech: string }) {
+export default function Chat({ canCall, ttsEnabled, t, defaultSpeech }: { canCall: boolean; ttsEnabled: boolean; t: Dict["assistant"]; defaultSpeech: string }) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -42,6 +42,7 @@ export default function Chat({ canCall, t, defaultSpeech }: { canCall: boolean; 
   const [listening, setListening] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const recRef = useRef<Recognition | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -69,14 +70,48 @@ export default function Chat({ canCall, t, defaultSpeech }: { canCall: boolean; 
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, busy]);
 
-  function say(text: string) {
+  // Stops whatever is currently being read aloud.
+  function stopSpeaking() {
+    audioRef.current?.pause();
+    window.speechSynthesis?.cancel();
+  }
+
+  /** Free fallback: the most natural voice this browser offers for the language. */
+  function browserSay(text: string) {
     if (!("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(speakable(text));
     u.lang = lang;
-    const voice = window.speechSynthesis.getVoices().find((v) => v.lang.replace("_", "-").startsWith(lang.slice(0, 2)));
+    const prefix = lang.slice(0, 2);
+    const score = (v: SpeechSynthesisVoice) =>
+      (/natural|neural|online|premium|enhanced/i.test(v.name) ? 4 : 0) + (/google|microsoft/i.test(v.name) ? 2 : 0) + (v.lang.replace("_", "-") === lang ? 1 : 0);
+    const voice = window.speechSynthesis
+      .getVoices()
+      .filter((v) => v.lang.replace("_", "-").toLowerCase().startsWith(prefix))
+      .sort((a, b) => score(b) - score(a))[0];
     if (voice) u.voice = voice;
     window.speechSynthesis.speak(u);
+  }
+
+  async function say(text: string) {
+    stopSpeaking();
+    if (ttsEnabled) {
+      try {
+        const res = await fetch("/api/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, lang: lang.slice(0, 2) }),
+        });
+        if (res.ok) {
+          const url = URL.createObjectURL(await res.blob());
+          const audio = new Audio(url);
+          audio.onended = () => URL.revokeObjectURL(url);
+          audioRef.current = audio;
+          await audio.play();
+          return;
+        }
+      } catch {}
+    }
+    browserSay(text);
   }
 
   async function send(text: string, viaVoice = false) {
@@ -130,7 +165,7 @@ export default function Chat({ canCall, t, defaultSpeech }: { canCall: boolean; 
     };
     rec.onerror = () => setListening(false);
     recRef.current = rec;
-    window.speechSynthesis?.cancel();
+    stopSpeaking();
     setListening(true);
     rec.start();
   }

@@ -24,24 +24,24 @@ export async function POST(req: Request) {
     // Inbound call: only the owner may talk to the assistant.
     const from = (params.From ?? "").replace(/[^\d+]/g, "");
     if (!from || from !== ownerPhone()) {
-      return twiml(sayAndListen(ro ? "Ne pare rău, acest număr nu este disponibil." : "Sorry, this line is private.", "x", true));
+      return twiml(await sayAndListen(ro ? "Ne pare rău, acest număr nu este disponibil." : "Sorry, this line is private.", "x", true));
     }
     conversationId = `call-${crypto.randomUUID()}`;
     const name = getSettings().owner_name;
     const greeting = ro ? `Salut${name ? " " + name : ""}! Cu ce te pot ajuta?` : `Hi${name ? " " + name : ""}! What can I do for you?`;
     saveConversation(conversationId, [{ role: "user", content: "(The owner is calling the assistant.)" }, { role: "assistant", content: greeting }], "phone");
-    return twiml(sayAndListen(greeting, conversationId));
+    return twiml(await sayAndListen(greeting, conversationId));
   }
 
   const speech = params.SpeechResult?.trim();
   if (!speech) {
-    return twiml(sayAndListen(ro ? "Bine, vorbim mai târziu!" : "Alright, talk soon!", conversationId, true));
+    return twiml(await sayAndListen(ro ? "Bine, vorbim mai târziu!" : "Alright, talk soon!", conversationId, true));
   }
   try {
     const { text } = await chat(conversationId, speech, "voice");
-    return twiml(sayAndListen(text, conversationId, BYE.test(speech)));
+    return twiml(await sayAndListen(text, conversationId, BYE.test(speech)));
   } catch (err) {
     console.error(err);
-    return twiml(sayAndListen(ro ? "Am o problemă tehnică acum. Încearcă din nou mai târziu." : "I hit a technical problem. Please try again later.", conversationId, true));
+    return twiml(await sayAndListen(ro ? "Am o problemă tehnică acum. Încearcă din nou mai târziu." : "I hit a technical problem. Please try again later.", conversationId, true));
   }
 }

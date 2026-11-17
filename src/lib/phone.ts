@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { getSettings, saveConversation } from "./repo";
 import { getLang } from "./i18n";
+import { speakableText, synthesize, ttsConfigured } from "./tts";
 
 /**
  * Phone calls go through Twilio. Needed env vars:
@@ -33,10 +34,23 @@ export function publicUrl(path: string) {
   return new URL(path, process.env.PUBLIC_BASE_URL).toString();
 }
 
+/** The spoken part of a reply: the natural ElevenLabs voice when set up, otherwise Twilio's built-in voice. */
+async function speech(text: string): Promise<string> {
+  const spoken = speakableText(text);
+  if (ttsConfigured()) {
+    try {
+      const id = await synthesize(spoken, phoneLanguage().startsWith("ro") ? "ro" : "en");
+      return `<Play>${xmlEscape(publicUrl(`/api/tts/audio/${id}`))}</Play>`;
+    } catch (err) {
+      console.error("Natural voice failed, using built-in voice", err);
+    }
+  }
+  return `<Say voice="${phoneVoice()}" language="${phoneLanguage()}">${xmlEscape(spoken)}</Say>`;
+}
+
 /** TwiML that says something, then listens for the owner's reply. */
-export function sayAndListen(text: string, conversationId: string, hangup = false): string {
-  const spoken = text.replace(/[*_#`>|]+/g, "").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").replace(/\s+/g, " ").trim();
-  const say = `<Say voice="${phoneVoice()}" language="${phoneLanguage()}">${xmlEscape(spoken)}</Say>`;
+export async function sayAndListen(text: string, conversationId: string, hangup = false): Promise<string> {
+  const say = await speech(text);
   if (hangup) return `<?xml version="1.0" encoding="UTF-8"?><Response>${say}<Hangup/></Response>`;
   const action = xmlEscape(publicUrl(`/api/phone/voice?c=${encodeURIComponent(conversationId)}`));
   return `<?xml version="1.0" encoding="UTF-8"?><Response><Gather input="speech" language="${phoneLanguage()}" speechTimeout="auto" action="${action}" method="POST">${say}</Gather><Redirect method="POST">${action}</Redirect></Response>`;
@@ -62,7 +76,7 @@ export async function placeCall(opening: string): Promise<{ ok: true; call_sid: 
   const body = new URLSearchParams({
     To: ownerPhone()!,
     From: process.env.TWILIO_FROM_NUMBER!,
-    Twiml: sayAndListen(opening, conversationId),
+    Twiml: await sayAndListen(opening, conversationId),
   });
   const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Calls.json`, {
     method: "POST",

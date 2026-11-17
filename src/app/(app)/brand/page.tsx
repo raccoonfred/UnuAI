@@ -4,14 +4,17 @@ import { aiConfigured } from "@/lib/ai";
 import { phoneConfigured } from "@/lib/phone";
 import SubmitButton from "@/components/SubmitButton";
 import { getDict } from "@/lib/i18n";
-import { addKnowledgeAction, deleteKnowledgeAction, learnFromUrl, saveBrandProfile, updateKnowledgeAction } from "../actions";
+import { listVoices, ttsConfigured, voiceFor } from "@/lib/tts";
+import VoiceTest from "@/components/VoiceTest";
+import { saveVoices, addKnowledgeAction, deleteKnowledgeAction, learnFromUrl, saveBrandProfile, updateKnowledgeAction } from "../actions";
 
 
-export default function BrandPage() {
+export default async function BrandPage() {
   const s = repo.getSettings();
   const knowledge = repo.listKnowledge();
   const t = getDict().brand;
   const CATEGORIES = Object.keys(t.categories);
+  const voices = await listVoices();
   return (
     <div className="space-y-6">
       <div>
@@ -19,10 +22,11 @@ export default function BrandPage() {
         <p className="text-sm text-muted">{t.intro}</p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Status ok={aiConfigured()} label={t.aiOk} hint={t.aiHint} />
         <Status ok={phoneConfigured()} label={t.phoneOk} hint={t.phoneHint} />
         <Status ok={Boolean(process.env.APP_PASSWORD)} label={t.pwOk} hint={t.pwHint} />
+        <Status ok={ttsConfigured()} label={t.voices.status} hint={t.voices.statusHint} />
       </div>
 
       <form action={saveBrandProfile} className="card grid gap-3 sm:grid-cols-2">
@@ -43,6 +47,36 @@ export default function BrandPage() {
         })}
         <div className="sm:col-span-2"><button className="btn-primary">{t.saveProfile}</button></div>
       </form>
+
+      <div className="card space-y-3">
+        <h2 className="h2">{t.voices.title}</h2>
+        {!ttsConfigured() ? (
+          <p className="text-sm text-muted">{t.voices.off}</p>
+        ) : (
+          <>
+            <p className="text-sm text-muted">{t.voices.intro}</p>
+            <form action={saveVoices} className="grid gap-3 sm:grid-cols-2">
+              {(["ro", "en"] as const).map((l) => (
+                <div key={l}>
+                  <label className="label">{l === "ro" ? t.voices.ro : t.voices.en}</label>
+                  <div className="flex flex-wrap gap-2">
+                    <select name={`voice_${l}`} defaultValue={voiceFor(l)} className="input flex-1">
+                      {voices.length === 0 && <option value={voiceFor(l)}>{voiceFor(l)}</option>}
+                      {voices.map((v) => (
+                        <option key={v.voice_id} value={v.voice_id}>
+                          {v.name}{v.labels ? ` (${Object.values(v.labels).filter(Boolean).slice(0, 3).join(", ")})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <VoiceTest lang={l} text={l === "ro" ? t.voices.sampleRo : t.voices.sampleEn} label={t.voices.test} />
+                  </div>
+                </div>
+              ))}
+              <div className="sm:col-span-2"><button className="btn-primary">{t.voices.save}</button></div>
+            </form>
+          </>
+        )}
+      </div>
 
       <div className="card space-y-3">
         <h2 className="h2">{t.teach}</h2>

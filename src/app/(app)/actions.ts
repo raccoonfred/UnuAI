@@ -36,6 +36,11 @@ export async function setLanguage(lang: Lang) {
 
 // ---------------- Brand ----------------
 
+export async function saveVoices(fd: FormData) {
+  repo.setSettings({ voice_ro: String(fd.get("voice_ro") ?? ""), voice_en: String(fd.get("voice_en") ?? "") });
+  revalidatePath("/brand");
+}
+
 export async function saveBrandProfile(fd: FormData) {
   repo.setSettings(Object.fromEntries(repo.BRAND_FIELDS.map((f) => [f.key, String(fd.get(f.key) ?? "")])));
   revalidatePath("/brand");
